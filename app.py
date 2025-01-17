@@ -13,22 +13,23 @@ import openai
 from dotenv import load_dotenv
 import os
 from urllib.parse import urlparse
+import feedparser
 
-
-
-# Step 1: Fetch Latest News
 def fetch_latest_news(query, num_results=10):
-    search_url = f"https://www.google.com/search?q={query}&tbm=nws"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(search_url, headers=headers)
-    soup = BeautifulSoup(response.text, "html.parser")
-    
+    """
+    Fetch the latest news using Google News RSS.
+    """
+    query = query.replace(" ", "+")  # Format query for the URL
+    rss_url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
+    feed = feedparser.parse(rss_url)
+
     articles = []
-    for result in soup.find_all("div", class_="BVG0Nb")[:num_results]:
-        title = result.find("div", class_="BNeawe vvjwJb AP7Wnd").text
-        link = result.find("a")["href"]
-        snippet = result.find("div", class_="BNeawe s3v9rd AP7Wnd").text
-        articles.append({"title": title, "link": link, "snippet": snippet})
+    for entry in feed.entries[:num_results]:
+        articles.append({
+            "title": entry.title,
+            "link": entry.link,
+            "snippet": entry.summary
+        })
     return articles
 
 # Step 2: Create PDF from News
@@ -41,31 +42,15 @@ def create_pdf(articles, query):
     
     for article in articles:
         pdf.set_font("Arial", style="B", size=12)
-        pdf.multi_cell(0, 10, article["title"])
+        pdf.multi_cell(200, 10, article["title"])
         pdf.set_font("Arial", size=12)
-        pdf.multi_cell(0, 10, article["snippet"])
-        pdf.multi_cell(0, 10, article["link"])
+        pdf.multi_cell(200, 10, article["snippet"])
+        pdf.multi_cell(200, 10, article["link"])
         pdf.ln()
     
     pdf_filename = f"{query.replace(' ', '_')}_news.pdf"
     pdf.output(pdf_filename)
     return pdf_filename
-
-# Step 3: Summarize News Using GPT
-# def summarize_news(articles):
-#     openai_api_key = os.getenv("OPENAI_API_KEY")
-#     news_text = "\n\n".join([f"{a['title']}: {a['snippet']}" for a in articles])
-#     # Use the latest GPT-4 model for better summarization
-#     prompt = f"Summarize the following news articles into a short podcast script:\n{news_text}"
-#     response = openai.ChatCompletion.create(
-#         model="gpt-4",
-#         messages=[
-#             {"role": "system", "content": "You are an expert news summarizer."},
-#             {"role": "user", "content": prompt}
-#         ],
-#         max_tokens=500
-#     )
-#     return response['choices'][0]['message']['content'].strip()
 
 # Step 4: Convert Summary to Audio
 def create_audio(summary, filename="podcast.mp3"):
@@ -75,32 +60,28 @@ def create_audio(summary, filename="podcast.mp3"):
 
 # Step 5: Upload to Spotify
 def upload_to_spotify(audio_file, podcast_title, podcast_description):
-    # spotify_client_id = os.getenv("SPOTIFY_CLIENT_ID")
-    # sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    #     client_id=spotify_client_id,
-    #     client_secret="your_spotify_client_secret",
-    #     redirect_uri="your_redirect_uri",
-    #     scope="ugc-image-upload,user-library-modify,user-library-read"
-    # ))
+    spotify_client_id = os.getenv("SPOTIFY_CLIENT_ID")
+    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
+        client_id=spotify_client_id,
+        client_secret="your_spotify_client_secret",
+        redirect_uri="your_redirect_uri",
+        scope="ugc-image-upload,user-library-modify,user-library-read"
+    ))
     
-    # # Create a new playlist (to mimic podcast functionality)
-    # user_id = sp.current_user()["id"]
-    # playlist = sp.user_playlist_create(user_id, podcast_title, description=podcast_description)
+    # Create a new playlist
+    user_id = sp.current_user()["id"]
+    playlist = sp.user_playlist_create(user_id, podcast_title, description=podcast_description)
     
-    # # Convert audio to required format (if needed)
-    # audio = AudioSegment.from_mp3(audio_file)
-    # audio.export("output.wav", format="wav")
-    
-    # Upload to Spotify (via workaround like playlist description or third-party hosting)
-    # You may need to explore third-party hosting to fully automate podcast uploads.
-    # print(f"Podcast uploaded to Spotify playlist: {playlist['external_urls']['spotify']}")
-    print(f"Podcast uploaded to Spotify playlist")
+    # Convert audio to required format (if needed)
+    audio = AudioSegment.from_mp3(audio_file)
+    audio.export("output.wav", format="wav")
+    print(f"Podcast uploaded to Spotify playlist: {playlist['external_urls']['spotify']}")
 
 def notebook_lm_step(pdf_file):
     print(f"Upload the PDF '{pdf_file}' to Google Notebook LM.")
     print("After getting the summary, copy and paste it here.")
     print("Paste the summary from Notebook LM: ")
-    return "this step is manual"
+    return "this step is manual currently"
 
 # Step 1: Define a ranking function
 def rank_results(articles, query):
@@ -152,37 +133,56 @@ def extract_key_points(snippet):
 
 # Step 2: Create a PDF with Key Points and Hyperlinks
 def create_pdf_with_links_and_keypoints(articles, query):
+    """
+    Create a PDF with article titles, links, snippets, and key points.
+    """
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt=f"Latest News on {query}", ln=True, align='C')
+    pdf.ln(10)  # Add a little space after the header
 
     for article in articles:
+        # Title
+        pdf.set_text_color(0, 0, 0)  # Reset text color to black
         pdf.set_font("Arial", style="B", size=12)
-        pdf.multi_cell(0, 10, article["title"])
-        
-        # Add the hyperlink
-        pdf.set_text_color(0, 0, 255)
+        pdf.multi_cell(200, 10, article["title"])
+        pdf.ln(2)  # Add a little spacing after the title
+
+        # Hyperlink
+        pdf.set_text_color(0, 0, 255)  # Set text color to blue for hyperlinks
         pdf.set_font("Arial", size=12)
-        pdf.cell(0, 10, article["link"], ln=True, link=article["link"])
-        
-        # Add the snippet and key points
+        link = article["link"]
+        if len(link) > 0:  # Check if link is not empty
+            pdf.cell(0, 10, link, ln=True, link=link)
+        else:
+            pdf.cell(0, 10, "No link available", ln=True)
+
+        pdf.ln(2)  # Add spacing after the link
+
+        # Snippet
         pdf.set_text_color(0, 0, 0)  # Reset text color to black
         pdf.set_font("Arial", size=12)
-        pdf.multi_cell(0, 10, f"Snippet: {article['snippet']}")
-        
-        # Extract and add key points
+        pdf.multi_cell(200, 10, f"Snippet: {article['snippet']}")
+        pdf.ln(2)
+
+        # Key Points
         key_points = extract_key_points(article["snippet"])
         pdf.set_font("Arial", style="I", size=11)
-        pdf.multi_cell(0, 10, "Key Points:")
+        pdf.multi_cell(200, 10, "Key Points:")
         for i, point in enumerate(key_points, start=1):
-            pdf.multi_cell(0, 10, f"  {i}. {point}")
-        
-        pdf.ln()
+            pdf.multi_cell(200, 10, f"  {i}. {point}")
+        pdf.ln(5)  # Add extra space between articles
+
+    # Save the PDF in the 'static' folder
+    static_dir = os.path.join(os.getcwd(), "static")
+    if not os.path.exists(static_dir):
+        os.makedirs(static_dir)
 
     pdf_filename = f"{query.replace(' ', '_')}_news_with_keypoints.pdf"
-    pdf.output(pdf_filename)
+    pdf_path = os.path.join(static_dir, pdf_filename)
+    pdf.output(pdf_path)
     return pdf_filename
 
 
@@ -217,12 +217,6 @@ def main():
          # Serve the PDF link for user to download and process
         pdf_url = f"/static/{pdf_file}"
         response_html += f"<p>PDF created: <a href='{pdf_url}' target='_blank'>{pdf_file}</a></p>"
-        # response_html += f"<form method='POST' action='/submit-summary'>"
-        # response_html += f"<textarea name='summary' placeholder='Paste the summary here' rows='10' cols='50'></textarea>"
-        # response_html += f"<button type='submit'>Submit Summary</button>"
-        # response_html += f"</form>"
-        # response_html += f"<p>PDF created: {pdf_file}</p>"
-
         # Summarize with Notebook LM or AI
         response_html += "<h3>Summarizing news...</h3>"
         summary = notebook_lm_step(pdf_file)  # Replace with summarize_news if fully automated
@@ -254,4 +248,6 @@ def main():
 if __name__ == '__main__':
     # Load environment variables from .env file
     load_dotenv()
+    nlp = spacy.load("en_core_web_sm")
+    print("Model loaded successfully!")
     app.run(host='0.0.0.0', port=8000)
