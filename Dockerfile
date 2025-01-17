@@ -12,16 +12,19 @@ build-essential \
 libffi-dev \
 libssl-dev \
 python3-dev \
-cargo \
-git \
 && rm -rf /var/lib/apt/lists/*
 RUN pip install --upgrade pip setuptools wheel
+# cargo \
+# git \
 
 # Copy the current directory contents into the container
 COPY . /app
 
 # RUN pip install --upgrade --no-cache-dir --only-binary=:all: -r requirements.txt
 RUN pip install --upgrade --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir numpy==1.21.6 spacy==3.4.4 thinc==8.1.9
+
+RUN python -m spacy validate
 
 # Expose port 8000 for Flask
 EXPOSE 8000

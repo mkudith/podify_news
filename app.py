@@ -15,6 +15,7 @@ import os
 from urllib.parse import urlparse
 
 
+
 # Step 1: Fetch Latest News
 def fetch_latest_news(query, num_results=10):
     search_url = f"https://www.google.com/search?q={query}&tbm=nws"
@@ -98,8 +99,8 @@ def upload_to_spotify(audio_file, podcast_title, podcast_description):
 def notebook_lm_step(pdf_file):
     print(f"Upload the PDF '{pdf_file}' to Google Notebook LM.")
     print("After getting the summary, copy and paste it here.")
-    summary = input("Paste the summary from Notebook LM: ")
-    return summary
+    print("Paste the summary from Notebook LM: ")
+    return "this step is manual"
 
 # Step 1: Define a ranking function
 def rank_results(articles, query):
@@ -213,7 +214,14 @@ def main():
         # Create PDF with links and key points
         response_html += "<h3>Creating PDF with links and key points...</h3>"
         pdf_file = create_pdf_with_links_and_keypoints(ranked_articles[:10], query)
-        response_html += f"<p>PDF created: {pdf_file}</p>"
+         # Serve the PDF link for user to download and process
+        pdf_url = f"/static/{pdf_file}"
+        response_html += f"<p>PDF created: <a href='{pdf_url}' target='_blank'>{pdf_file}</a></p>"
+        # response_html += f"<form method='POST' action='/submit-summary'>"
+        # response_html += f"<textarea name='summary' placeholder='Paste the summary here' rows='10' cols='50'></textarea>"
+        # response_html += f"<button type='submit'>Submit Summary</button>"
+        # response_html += f"</form>"
+        # response_html += f"<p>PDF created: {pdf_file}</p>"
 
         # Summarize with Notebook LM or AI
         response_html += "<h3>Summarizing news...</h3>"
@@ -222,7 +230,7 @@ def main():
 
         # Create audio
         response_html += "<h3>Creating audio...</h3>"
-        audio_file = create_audio(summary)
+        audio_file = create_audio(pdf_file)
         response_html += f"<p>Audio created: {audio_file}</p>"
 
         # Upload to Spotify
@@ -244,4 +252,6 @@ def main():
 
 
 if __name__ == '__main__':
+    # Load environment variables from .env file
+    load_dotenv()
     app.run(host='0.0.0.0', port=8000)

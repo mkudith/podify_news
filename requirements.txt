@@ -10,3 +10,4 @@ pydub
 spotipy 
 openai
 python-dotenv
+numpy>=1.21.6
