@@ -66,11 +66,6 @@ docker run -d -p 5000:5000 my_new_project:latest
 6. Check logs
 docker logs <container_id>
 
-7. Tag and share for docker repo
-docker tag my_new_project:latest your_dockerhub_username/my_new_project:latest
-docker push your_dockerhub_username/my_new_project:latest
-
-
 ---
 
 ## 🚀 Usage
